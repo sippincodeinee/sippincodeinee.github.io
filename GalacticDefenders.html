@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Galactic Defender</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      /* Use a background GIF image here */
+      background-image: url('https://i.imgur.com/YAzfXmF.gif');
+      background-size: cover;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div id="gameOverScreen" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; flex-direction: column;">
+    <h1 style="color: white; font-size: 36px;">Game Over</h1>
+    <button id="restartButton" style="font-size: 24px;">Restart</button>
+  </div>
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+        // Load player and enemy images
+        const playerImage = new Image();
+    playerImage.src = "https://i.imgur.com/Bvv6f5n.png"; // Replace with actual image path
+
+    const enemyImage = new Image();
+    enemyImage.src = "https://i.imgur.com/IFTGL6x.png"; // Replace with actual image path
+
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height - 95,
+      width: 90,
+      height: 90,
+      speed: 20,
+      health: 20,
+    };
+
+    const bullets = [];
+    const greenEnemies = [];
+    let score = 0;
+    let round = 1;
+    let enemySpeed = 1;
+    let enemySpawnRate = 0.002;
+
+    const gameOverScreen = document.getElementById("gameOverScreen");
+    const restartButton = document.getElementById("restartButton");
+
+    function showGameOverScreen() {
+      gameOverScreen.style.display = "flex";
+    }
+
+    function hideGameOverScreen() {
+      gameOverScreen.style.display = "none";
+    }
+
+    restartButton.addEventListener("click", () => {
+      hideGameOverScreen();
+      player.health = 20;
+      score = 0;
+      round = 1;
+      enemySpeed = 1;
+      enemySpawnRate = 0.001;
+      greenEnemies.length = 0;
+      gameLoop();
+    });
+
+    function drawPlayer() {
+      // Draw the player image
+      ctx.drawImage(playerImage, player.x, player.y, player.width, player.height);
+    }
+
+    function drawBullet(bullet) {
+      ctx.fillStyle = "#FFFF00";
+      ctx.fillRect(bullet.x, bullet.y, bullet.width, bullet.height);
+    }
+
+    function drawGreenEnemy(enemy) {
+      // Draw the enemy image
+      ctx.drawImage(enemyImage, enemy.x, enemy.y, enemy.width, enemy.height);
+    }
+
+    function drawHUD() {
+      ctx.fillStyle = "gold";
+      ctx.font = "24px Arial";
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "black";
+      ctx.strokeText("Score: " + score, 20, 30);
+      ctx.fillText("Score: " + score, 20, 30);
+      ctx.strokeText("Round: " + round, canvas.width / 2 - 50, 30);
+      ctx.fillText("Round: " + round, canvas.width / 2 - 50, 30);
+
+      ctx.fillStyle = "white";
+      ctx.strokeText("Health:", 10, canvas.height - 12);
+      ctx.fillText("Health:", 10, canvas.height - 12);
+      ctx.fillStyle = "green";
+      ctx.fillRect(90, canvas.height - 30, player.health * 10, 20);
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (player.health <= 0) {
+        showGameOverScreen();
+        return;
+      }
+
+      player.x = Math.min(
+        canvas.width - player.width,
+        Math.max(0, player.x)
+      );
+
+      drawPlayer();
+
+      bullets.forEach((bullet, index) => {
+        bullet.y -= 10;
+
+        if (bullet.y < 0) {
+          bullets.splice(index, 1);
+        }
+
+        drawBullet(bullet);
+      });
+
+      if (Math.random() < enemySpawnRate) {
+        const greenEnemyX = player.x + Math.random() * player.width - 40;
+        greenEnemies.push({ x: greenEnemyX, y: 0, width: 40, height: 40, speed: enemySpeed, color: "#00FF00" });
+
+        // Add a second green enemy with a small chance
+        if (Math.random() < 0.1) {
+          const secondGreenEnemyX = player.x + Math.random() * player.width - 40;
+          greenEnemies.push({ x: secondGreenEnemyX, y: 0, width: 40, height: 40, speed: enemySpeed, color: "#00FF00" });
+        }
+      }
+
+      greenEnemies.forEach((enemy, index) => {
+        enemy.y += enemy.speed;
+
+        if (enemy.y > canvas.height) {
+          greenEnemies.splice(index, 1);
+          player.health--;
+        }
+
+        drawGreenEnemy(enemy, enemy.color);
+
+        bullets.forEach((bullet, bulletIndex) => {
+          if (
+            bullet.x < enemy.x + enemy.width &&
+            bullet.x + bullet.width > enemy.x &&
+            bullet.y < enemy.y + enemy.height &&
+            bullet.y + bullet.height > enemy.y
+          ) {
+            bullets.splice(bulletIndex, 1);
+            greenEnemies.splice(index, 1);
+            score++;
+          }
+        });
+      });
+
+      if (score >= round * 5) {
+        round++;
+        enemySpeed += 0.5;
+        enemySpawnRate += 0.001;
+        player.speed += 2;
+      }
+
+      drawHUD();
+      requestAnimationFrame(gameLoop);
+    }
+
+    function keyDownHandler(e) {
+      if (e.key === "ArrowLeft") {
+        player.x -= player.speed;
+      } else if (e.key === "ArrowRight") {
+        player.x += player.speed;
+      } else if (e.key === " ") {
+        bullets.push({
+          x: player.x + player.width / 2 - 2.5,
+          y: player.y,
+          width: 5,
+          height: 20,
+        });
+      }
+      // Add pause functionality with the Escape key
+      else if (e.key === "Escape") {
+        isPaused = !isPaused;
+      }
+    }
+
+    document.addEventListener("keydown", keyDownHandler, false);
+
+    gameLoop();
+  </script>
+</body>
+</html>
